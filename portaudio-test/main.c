@@ -7,7 +7,9 @@
 //
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include "portaudio.h"
 
 #define NUM_SECONDS   (.5f)
@@ -36,6 +38,7 @@ typedef struct {
 } paSawData;
 
 int h = 0;
+char *token = (char *)NULL;
 
 /* This routine will be called by the PortAudio engine when audio is needed.
  ** It may called at interrupt level on some machines so don't do anything
@@ -118,12 +121,12 @@ static int sinCallback( const void *inputBuffer, void *outputBuffer,
         *out++ = data->right_phase;  /* right */
         /* Generate note with midi conversion */
         data->left_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
-        data->left_phase = sin(data->left_x*M_PI)*10.0f;
+        data->left_phase = sin(data->left_x*M_PI);
         /* When signal reaches top, drop back down. */
         if( data->left_x >= 2.0f ) data->left_x = 0.0f;
         /* Generate note with midi conversion */
         data->right_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
-        data->right_phase = sin(data->right_x*M_PI)*10.0f;
+        data->right_phase = sin(data->right_x*M_PI);
         /* When signal reaches top, drop back down. */
         if( data->right_x >= 2.0f ) data->right_x = 0.0f;
     }
@@ -133,9 +136,20 @@ static int sinCallback( const void *inputBuffer, void *outputBuffer,
 
 /*******************************************************************/
 static paSinData data;
-int main(void);
-int main(void)
+
+int main(int argc, const char * argv[])
 {
+    if (argc!=2) {
+        printf("Please specify melody file.\n");
+        return 0;
+    }
+    
+    FILE *melodyfd = fopen(argv[1], "r+");
+    if (melodyfd == NULL) {
+        printf("Error opening melody file!!\n");
+        return 0;
+    }
+    
     PaStream *stream;
     PaError err;
     
@@ -161,21 +175,19 @@ int main(void)
     if( err != paNoError ) goto error;
     
     /* Sleep for several seconds. */
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 62.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 64.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 65.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 67.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 69.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 71.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
-    MIDI = 72.0f;
-    Pa_Sleep(NUM_SECONDS*1000);
+    
+    char buf[1000];
+    while (fgets(buf,1000, melodyfd)!=NULL) {
+        const char t[2] = " \n";
+        token = strtok(buf, t);
+        
+        for(int i=0; token!=NULL; i++) {
+            
+            MIDI = atoi(token);
+            Pa_Sleep(NUM_SECONDS*1000);
+            token=strtok(NULL, t);
+        }
+    }
     
     err = Pa_StopStream( stream );
     if( err != paNoError ) goto error;
