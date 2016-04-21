@@ -9,18 +9,31 @@
 #include <stdio.h>
 #include <math.h>
 #include "portaudio.h"
+
 #define NUM_SECONDS   (.5f)
 #define SAMPLE_RATE   (44100)
-#define HERTZ   (261.6.0f)
+#define HERTZ   (261.6f)
 
 double MIDI = 60.0f;
 
-typedef struct
-{
+typedef struct {
     float left_phase;
     float right_phase;
-}
-paTestData;
+    double left_x;
+    double right_x;
+} paSinData;
+
+typedef struct {
+    float left_phase;
+    float right_phase;
+    double left_x;
+    double right_x;
+} paSqrData;
+
+typedef struct {
+    float left_phase;
+    float right_phase;
+} paSawData;
 
 int h = 0;
 
@@ -28,14 +41,14 @@ int h = 0;
  ** It may called at interrupt level on some machines so don't do anything
  ** that could mess up the system like calling malloc() or free().
  */
-static int patestCallback( const void *inputBuffer, void *outputBuffer,
+static int sawCallback( const void *inputBuffer, void *outputBuffer,
                           unsigned long framesPerBuffer,
                           const PaStreamCallbackTimeInfo* timeInfo,
                           PaStreamCallbackFlags statusFlags,
                           void *userData )
 {
     /* Cast data passed through stream to our structure. */
-    paTestData *data = (paTestData*)userData;
+    paSawData *data = (paSawData*)userData;
     float *out = (float*)outputBuffer;
     unsigned int i;
     (void) inputBuffer; /* Prevent unused variable warning. */
@@ -44,11 +57,11 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
     {
         *out++ = data->left_phase;  /* left */
         *out++ = data->right_phase;  /* right */
-        /* Generate middle c note with midi conversion */
+        /* Generate note with midi conversion */
         data->left_phase += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
         /* When signal reaches top, drop back down. */
         if( data->left_phase >= 1.0f ) data->left_phase -= 2.0f;
-        /* Generate middle c note with midi conversion */
+        /* Generate note with midi conversion */
         data->right_phase += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
         if( data->right_phase >= 1.0f ) data->right_phase -= 2.0f;
     }
@@ -56,8 +69,70 @@ static int patestCallback( const void *inputBuffer, void *outputBuffer,
     return 0;
 }
 
+static int sqrCallback( const void *inputBuffer, void *outputBuffer,
+                       unsigned long framesPerBuffer,
+                       const PaStreamCallbackTimeInfo* timeInfo,
+                       PaStreamCallbackFlags statusFlags,
+                       void *userData )
+{
+    /* Cast data passed through stream to our structure. */
+    paSqrData *data = (paSqrData*)userData;
+    float *out = (float*)outputBuffer;
+    unsigned int i;
+    (void) inputBuffer; /* Prevent unused variable warning. */
+    
+    for( i=0; i<framesPerBuffer; i++ )
+    {
+        *out++ = data->left_phase;  /* left */
+        *out++ = data->right_phase;  /* right */
+        /* Generate note with midi conversion */
+        data->left_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
+        /* When signal reaches top, drop back down. */
+        if( data->left_x >= 0.0f ) data->left_phase = 1.0f;
+        if( data->left_x >= 1.0f ) { data->left_phase = -1.0f; data->left_x = -1.0f;}
+        /* Generate note with midi conversion */
+        data->right_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
+        /* When signal reaches top, drop back down. */
+        if( data->right_x >= 0.0f ) data->right_phase = 1.0f;
+        if( data->right_x >= 1.0f ) { data->right_phase = -1.0f; data->right_x = -1.0f;}
+    }
+    //printf("%i\n", h++);
+    return 0;
+}
+
+static int sinCallback( const void *inputBuffer, void *outputBuffer,
+                       unsigned long framesPerBuffer,
+                       const PaStreamCallbackTimeInfo* timeInfo,
+                       PaStreamCallbackFlags statusFlags,
+                       void *userData )
+{
+    /* Cast data passed through stream to our structure. */
+    paSinData *data = (paSinData*)userData;
+    float *out = (float*)outputBuffer;
+    unsigned int i;
+    (void) inputBuffer; /* Prevent unused variable warning. */
+    
+    for( i=0; i<framesPerBuffer; i++ )
+    {
+        *out++ = data->left_phase;  /* left */
+        *out++ = data->right_phase;  /* right */
+        /* Generate note with midi conversion */
+        data->left_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
+        data->left_phase = sin(data->left_x*M_PI)*10.0f;
+        /* When signal reaches top, drop back down. */
+        if( data->left_x >= 2.0f ) data->left_x = 0.0f;
+        /* Generate note with midi conversion */
+        data->right_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
+        data->right_phase = sin(data->right_x*M_PI)*10.0f;
+        /* When signal reaches top, drop back down. */
+        if( data->right_x >= 2.0f ) data->right_x = 0.0f;
+    }
+    //printf("%i\n", h++);
+    return 0;
+}
+
 /*******************************************************************/
-static paTestData data;
+static paSinData data;
 int main(void);
 int main(void)
 {
@@ -78,7 +153,7 @@ int main(void)
                                paFloat32,  /* 32 bit floating point output */
                                SAMPLE_RATE,
                                256,        /* frames per buffer */
-                               patestCallback,
+                               sinCallback,
                                &data );
     if( err != paNoError ) goto error;
     
