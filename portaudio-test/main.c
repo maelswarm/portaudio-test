@@ -30,6 +30,7 @@ typedef struct {
     float right_phase;
     double left_x;
     double right_x;
+    double pulse_width;
 } paSqrData;
 
 typedef struct {
@@ -63,10 +64,10 @@ static int sawCallback( const void *inputBuffer, void *outputBuffer,
         /* Generate note with midi conversion */
         data->left_phase += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
         /* When signal reaches top, drop back down. */
-        if( data->left_phase >= 1.0f ) data->left_phase -= 2.0f;
+        if( data->left_phase >= 1.0f ) data->left_phase = -1.0f;
         /* Generate note with midi conversion */
         data->right_phase += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
-        if( data->right_phase >= 1.0f ) data->right_phase -= 2.0f;
+        if( data->right_phase >= 1.0f ) data->right_phase = -1.0f;
     }
     //printf("%i\n", h++);
     return 0;
@@ -80,6 +81,7 @@ static int sqrCallback( const void *inputBuffer, void *outputBuffer,
 {
     /* Cast data passed through stream to our structure. */
     paSqrData *data = (paSqrData*)userData;
+    data->pulse_width = 1.0f;
     float *out = (float*)outputBuffer;
     unsigned int i;
     (void) inputBuffer; /* Prevent unused variable warning. */
@@ -92,12 +94,12 @@ static int sqrCallback( const void *inputBuffer, void *outputBuffer,
         data->left_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
         /* When signal reaches top, drop back down. */
         if( data->left_x >= 0.0f ) data->left_phase = 1.0f;
-        if( data->left_x >= 1.0f ) { data->left_phase = -1.0f; data->left_x = -1.0f;}
+        if( data->left_x >= data->pulse_width ) { data->left_phase = -1.0f; data->left_x = -1.0f;}
         /* Generate note with midi conversion */
         data->right_x += 0.000045421511627907f*pow(2.0f, ((MIDI-69.0f)/12.0f))*440.0f;
         /* When signal reaches top, drop back down. */
         if( data->right_x >= 0.0f ) data->right_phase = 1.0f;
-        if( data->right_x >= 1.0f ) { data->right_phase = -1.0f; data->right_x = -1.0f;}
+        if( data->right_x >= data->pulse_width ) { data->right_phase = -1.0f; data->right_x = -1.0f;}
     }
     //printf("%i\n", h++);
     return 0;
